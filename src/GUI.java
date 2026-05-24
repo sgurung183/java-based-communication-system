@@ -88,6 +88,7 @@ public class GUI {
         private ConversationList allConversations = new ConversationList();
         private Conversation currentConversation = null;
         private final Set<String> unreadKeys = new HashSet<>();
+        private boolean viewingAllConversations = false;
 
         MainWindow(User user, Client client) {
             super("Communication System — " + user.getFullName());
@@ -222,6 +223,7 @@ public class GUI {
                 protected void done() {
                     try {
                         allConversations = get();
+                        viewingAllConversations = false;
                         refreshConversationList();
                     } catch (Exception e) {
                         JOptionPane.showMessageDialog(MainWindow.this, "Could not load conversations.");
@@ -241,6 +243,7 @@ public class GUI {
                     try {
                         allConversations = get();
                         currentConversation = null;
+                        viewingAllConversations = true;
                         refreshConversationList();
                         messageArea.setText("");
                         chatHeader.setText(" All Conversations");
@@ -412,13 +415,28 @@ public class GUI {
         private class ConvCellRenderer extends DefaultListCellRenderer {
             @Override
             public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
-                Component c = super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                String label = value != null ? value.toString() : "";
+                boolean isOwn = false;
+                boolean isUnread = false;
+
                 if (index < allConversations.size()) {
-                    String key = getConversationKey(allConversations.get(index));
-                    if (unreadKeys.contains(key)) {
-                        c.setFont(c.getFont().deriveFont(Font.BOLD));
-                        if (!isSelected) c.setBackground(new Color(255, 248, 220));
+                    Conversation conv = allConversations.get(index);
+                    String key = getConversationKey(conv);
+                    isUnread = unreadKeys.contains(key);
+                    if (viewingAllConversations) {
+                        List<String> members = conv.getMembersList();
+                        isOwn = members != null && members.contains(user.getFullName().toUpperCase());
+                        if (isOwn) label = label + "  [You]";
                     }
+                }
+
+                Component c = super.getListCellRendererComponent(list, label, index, isSelected, cellHasFocus);
+                if (isUnread) {
+                    c.setFont(c.getFont().deriveFont(Font.BOLD));
+                    if (!isSelected) c.setBackground(new Color(255, 248, 220));
+                }
+                if (viewingAllConversations && isOwn && !isSelected && !isUnread) {
+                    c.setBackground(new Color(225, 240, 255));
                 }
                 return c;
             }
