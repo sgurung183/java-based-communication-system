@@ -4,7 +4,9 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import javax.swing.*;
 
 public class GUI {
@@ -85,6 +87,7 @@ public class GUI {
 
         private ConversationList allConversations = new ConversationList();
         private Conversation currentConversation = null;
+        private final Set<String> unreadKeys = new HashSet<>();
 
         MainWindow(User user, Client client) {
             super("Communication System — " + user.getFullName());
@@ -154,6 +157,7 @@ public class GUI {
             convJList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
             convJList.setFont(new Font("SansSerif", Font.PLAIN, 13));
             convJList.setFixedCellHeight(38);
+            convJList.setCellRenderer(new ConvCellRenderer());
             sidePanel.add(new JScrollPane(convJList), BorderLayout.CENTER);
 
             JButton newChatBtn = new JButton("+ New Chat");
@@ -195,6 +199,8 @@ public class GUI {
                     int idx = convJList.getSelectedIndex();
                     if (idx < allConversations.size()) {
                         currentConversation = allConversations.get(idx);
+                        unreadKeys.remove(getConversationKey(currentConversation));
+                        convJList.repaint();
                         displayConversation(currentConversation);
                     }
                 }
@@ -279,23 +285,34 @@ public class GUI {
             new SwingWorker<List<User>, Void>() {
                 @Override
                 protected List<User> doInBackground() throws Exception {
-                    return client.requestOnlineUsers();
+                    return client.requestAllUsers();
                 }
                 @Override
                 protected void done() {
                     try {
-                        List<User> online = get();
-                        if (online.isEmpty()) {
-                            JOptionPane.showMessageDialog(MainWindow.this, "No other users are currently online.");
+                        List<User> all = get();
+                        if (all.isEmpty()) {
+                            JOptionPane.showMessageDialog(MainWindow.this, "No other users found.");
                             return;
                         }
-                        String[] names = online.stream().map(User::getFullName).toArray(String[]::new);
-                        String selected = (String) JOptionPane.showInputDialog(
-                            MainWindow.this, "Select a user to chat with:", "New Chat",
-                            JOptionPane.PLAIN_MESSAGE, null, names, names[0]);
-                        if (selected != null) openOrCreateConversation(selected);
+                        DefaultListModel<String> model = new DefaultListModel<>();
+                        for (User u : all) model.addElement(u.getFullName());
+                        JList<String> list = new JList<>(model);
+                        list.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
+                        list.setFont(new Font("SansSerif", Font.PLAIN, 13));
+
+                        JPanel panel = new JPanel(new BorderLayout(0, 6));
+                        panel.add(new JLabel("Select people to chat with (Ctrl/Shift to select multiple):"), BorderLayout.NORTH);
+                        JScrollPane scroll = new JScrollPane(list);
+                        scroll.setPreferredSize(new Dimension(250, 200));
+                        panel.add(scroll, BorderLayout.CENTER);
+
+                        int result = JOptionPane.showConfirmDialog(MainWindow.this, panel, "New Chat", JOptionPane.OK_CANCEL_OPTION);
+                        if (result == JOptionPane.OK_OPTION && !list.isSelectionEmpty()) {
+                            openOrCreateConversation(list.getSelectedValuesList());
+                        }
                     } catch (Exception e) {
-                        JOptionPane.showMessageDialog(MainWindow.this, "Could not load online users.");
+                        JOptionPane.showMessageDialog(MainWindow.this, "Could not load users.");
                     }
                 }
             }.execute();
@@ -332,6 +349,9 @@ public class GUI {
         // ---- UI helpers ----
 
         private void refreshConversationList() {
+            allConversations.getConversationList().sort(
+                (a, b) -> b.getLastMessageTimestamp().compareTo(a.getLastMessageTimestamp())
+            );
             convListModel.clear();
             for (int i = 0; i < allConversations.size(); i++) {
                 String label = allConversations.get(i).getRecipientsString(user);
@@ -350,23 +370,28 @@ public class GUI {
             scrollToBottom();
         }
 
-        private void openOrCreateConversation(String targetName) {
-            // Re-use an existing conversation if one already exists
+        private void openOrCreateConversation(List<String> targetNames) {
+            List<String> targetUpper = new ArrayList<>();
+            for (String n : targetNames) targetUpper.add(n.trim().toUpperCase());
+            targetUpper.sort(null);
+
             for (int i = 0; i < allConversations.size(); i++) {
-                List<String> recips = allConversations.get(i).getRecipients(user);
-                if (recips.size() == 1 && recips.get(0).equalsIgnoreCase(targetName)) {
+                List<String> recips = new ArrayList<>(allConversations.get(i).getRecipients(user));
+                for (int j = 0; j < recips.size(); j++) recips.set(j, recips.get(j).toUpperCase());
+                recips.sort(null);
+                if (recips.equals(targetUpper)) {
                     convJList.setSelectedIndex(i);
                     return;
                 }
             }
-            // Otherwise create a placeholder so the user can type and send
-            List<String> members = new ArrayList<>();
+            // Create a placeholder so the user can type and send
+            List<String> members = new ArrayList<>(targetUpper);
             members.add(user.getFullName().toUpperCase());
-            members.add(targetName.toUpperCase());
             members.sort(null);
             currentConversation = new Conversation(-1, members, new ArrayList<>());
-            chatHeader.setText(" " + targetName);
-            messageArea.setText("(Start your conversation with " + targetName + ")\n");
+            String header = String.join(", ", targetNames);
+            chatHeader.setText(" " + header);
+            messageArea.setText("(Start your conversation with " + header + ")\n");
         }
 
         private void appendLine(String line) {
@@ -378,15 +403,57 @@ public class GUI {
             messageArea.setCaretPosition(messageArea.getDocument().getLength());
         }
 
+        private String getConversationKey(Conversation conv) {
+            List<String> members = new ArrayList<>(conv.getMembersList());
+            members.sort(null);
+            return String.join(",", members);
+        }
+
+        private class ConvCellRenderer extends DefaultListCellRenderer {
+            @Override
+            public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+                Component c = super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                if (index < allConversations.size()) {
+                    String key = getConversationKey(allConversations.get(index));
+                    if (unreadKeys.contains(key)) {
+                        c.setFont(c.getFont().deriveFont(Font.BOLD));
+                        if (!isSelected) c.setBackground(new Color(255, 248, 220));
+                    }
+                }
+                return c;
+            }
+        }
+
         // ---- Real-time message callback (runs on EDT) ----
 
         void onMessageReceived(Message msg) {
-            if (currentConversation == null) return;
-            String senderUpper = msg.getSender().getFullName().toUpperCase();
-            List<String> members = currentConversation.getMembersList();
-            if (members != null && members.contains(senderUpper)) {
-                appendLine("[" + msg.getSender().getFullName() + "]: " + msg.getContent());
+            List<String> msgMembers = msg.getMembers();
+            msgMembers.sort(null);
+            String key = String.join(",", msgMembers);
+            String msgString = "[" + msg.getTimestamp() + "] " + msg.getSender().getFullName() + ": " + msg.getContent();
+
+            // Update in-memory conversation or create a new one
+            boolean found = false;
+            for (int i = 0; i < allConversations.size(); i++) {
+                if (getConversationKey(allConversations.get(i)).equals(key)) {
+                    allConversations.get(i).addMessageString(msgString);
+                    found = true;
+                    break;
+                }
             }
+            if (!found) {
+                Conversation newConv = new Conversation(-1, new ArrayList<>(msgMembers), new ArrayList<>());
+                newConv.addMessageString(msgString);
+                allConversations.addConversation(newConv);
+            }
+
+            String currentKey = currentConversation != null ? getConversationKey(currentConversation) : null;
+            if (key.equals(currentKey)) {
+                appendLine("[" + msg.getSender().getFullName() + "]: " + msg.getContent());
+            } else {
+                unreadKeys.add(key);
+            }
+            refreshConversationList();
         }
     }
 }

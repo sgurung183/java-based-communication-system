@@ -65,6 +65,12 @@ public class Client {
         return (ConversationList) serverMessages.take();
     }
 
+    public synchronized List<User> requestAllUsers() throws Exception {
+        out.writeObject(new Message(user, "getAllUsersRequest", Status.request));
+        out.flush();
+        return (List<User>) serverMessages.take();
+    }
+
     public synchronized List<User> requestOnlineUsers() throws Exception {
         out.writeObject(new Message(user, "viewOnlineRequest", Status.request));
         out.flush();

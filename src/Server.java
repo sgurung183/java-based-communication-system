@@ -149,6 +149,9 @@ public class Server {
 					case "viewOnlineRequest":
 						viewOnlineHandler(user, out, in);
 						break;
+					case "getAllUsersRequest":
+						getAllUsersHandler(user, out, in);
+						break;
 					case "logOutRequest":
 						logOutRequest(user, out, in);
 						return;
@@ -593,6 +596,35 @@ public class Server {
 				e.printStackTrace();
 			}
 		}
+		private static void getAllUsersHandler(User requester, ObjectOutputStream out, ObjectInputStream in) throws IOException {
+			String requesterName = requester.getFullName().toUpperCase();
+			ArrayList<User> allUsers = new ArrayList<>();
+			try {
+				File loginFile = new File(loginInfoFile);
+				Scanner lineScanner = new Scanner(loginFile);
+				while (lineScanner.hasNextLine()) {
+					String line = lineScanner.nextLine();
+					Scanner wordScanner = new Scanner(line);
+					wordScanner.useDelimiter(",");
+					String id = wordScanner.next().trim();
+					wordScanner.next(); // skip password
+					String name = wordScanner.next().trim();
+					String roleString = wordScanner.next().trim();
+					Role role = roleString.equals("EMPLOYEE") ? Role.Employee : Role.ITUser;
+					String empId = wordScanner.next().trim();
+					wordScanner.close();
+					if (!name.toUpperCase().equals(requesterName)) {
+						allUsers.add(new User(name, empId, id, null, role));
+					}
+				}
+				lineScanner.close();
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+			out.writeObject(allUsers);
+			out.flush();
+		}
+
 		//works on a specific use, instance specific so not static
 		private void logOutRequest(User user, ObjectOutputStream out, ObjectInputStream in) {
 			//remove the user from the map nad close the streams

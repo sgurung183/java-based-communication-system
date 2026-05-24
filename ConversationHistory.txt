@@ -32,3 +32,18 @@ Chat:
 [2026-05-22T15:56:21.901322200] Jezelle: damn
 [2026-05-23T01:06:29.872331500] Sushant: Yo wassup buddy is this project working
 [2026-05-23T01:06:55.459726500] Jezelle: Well looks like it is works
+[2026-05-24T13:46:45.847568400] Sushant: You are offline right now huh
+[2026-05-24T13:58:35.021584700] Jezelle: shoud we store the converstaions in a databse ?
+[2026-05-24T13:58:41.320298] Sushant: nah for now this is gine
+[2026-05-24T13:58:45.257426500] Jezelle: gine?
+[2026-05-24T13:58:51.802765] Sushant: my bad i meant fine
+
+Conversation 0
+Members: BILLY,POLLY,RICK,SUSHANT
+Chat:
+[2026-05-24T14:03:58.718678700] Sushant: Wassup guys, we need to create a new project
+
+Conversation 1
+Members: JEZELLE,POLLY,SUSHANT
+Chat:
+[2026-05-24T14:04:46.676851400] Polly: damn soon

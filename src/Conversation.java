@@ -1,4 +1,5 @@
 import java.io.Serializable;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -94,11 +95,27 @@ public class Conversation implements Serializable{
 	public String getMessagesString(){
 		String sendersAndMessages = "";
 		for(int i =0; i<conversationHistory.size();i++) {
-			sendersAndMessages += 
+			sendersAndMessages +=
 					conversationHistory.get(i) + "\n";
 		}
-		
+
 		return sendersAndMessages;
+	}
+
+	public void addMessageString(String msg) {
+		if (conversationHistory == null) conversationHistory = new ArrayList<>();
+		conversationHistory.add(msg);
+	}
+
+	public LocalDateTime getLastMessageTimestamp() {
+		if (conversationHistory == null || conversationHistory.isEmpty()) return LocalDateTime.MIN;
+		String last = conversationHistory.get(conversationHistory.size() - 1);
+		try {
+			int start = last.indexOf('[') + 1;
+			int end = last.indexOf(']');
+			if (start > 0 && end > start) return LocalDateTime.parse(last.substring(start, end));
+		} catch (Exception ignored) {}
+		return LocalDateTime.MIN;
 	}
 
 }
