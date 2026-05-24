@@ -361,7 +361,7 @@ public class Server {
 			// sentMessage contains all info about sender and reciever,
 			// so only sentMessage required as the parameter
 
-			//sendChat(sentMessage);
+			sendChat(sentMessage);
 
 			// process fields of sent message
 			User sender = sentMessage.getSender();
@@ -596,7 +596,7 @@ public class Server {
 		//works on a specific use, instance specific so not static
 		private void logOutRequest(User user, ObjectOutputStream out, ObjectInputStream in) {
 			//remove the user from the map nad close the streams
-			streamsInfo.remove(user.getFullName());
+			streamsInfo.remove(user.getFullName().toUpperCase());
 			try {
 				out.close();
 				in.close();
